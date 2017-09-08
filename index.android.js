@@ -12,20 +12,39 @@ import {
   View
 } from 'react-native';
 
-export default class GPSProject extends Component {
+export default class Geolocation extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      latitude : null,
+      longitude : null,
+      error : null
+    };
+  }
+
+  componentDidMount() {
+    this.watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        this.setState({
+          latitude : position.coords.latitude,
+          longitude : position.coords.longitude,
+          error : null
+        })
+      },
+      (error) => this.setState({error : error.message}),
+      {enableHighAccuracy : true, timeout : 20000, maximumAge : 1000, distanceFilter : 7}
+    );
+  }
+
+  componentWillUnmount() { navigator.geolocation.clearWatch(this.watchId); }
+
   render() {
     return (
-      <View style={styles.container}>
-        <Text style={styles.welcome}>
-          Welcome to React Native!
-        </Text>
-        <Text style={styles.instructions}>
-          To get started, edit index.android.js
-        </Text>
-        <Text style={styles.instructions}>
-          Double tap R on your keyboard to reload,{'\n'}
-          Shake or press menu button for dev menu
-        </Text>
+      <View style={{ flexgrow : 1, alignItems : 'center', justifyContent : 'center'}}>
+        <Text> Latitude : {this.state.latitude} </Text>
+        <Text> Longitude : {this.state.longitude} </Text>
+        {this.state.error ? <Text> Error : {this.state.error} </Text> : null}
       </View>
     );
   }
@@ -50,4 +69,4 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('GPSProject', () => GPSProject);
+AppRegistry.registerComponent('GPSProject', () => Geolocation);
