@@ -4,57 +4,119 @@
  * @flow
  */
 
+import Geolocation from './Geolocation';
 import React, { Component } from 'react';
-import {
-  AppRegistry,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+import { StackNavigator } from 'react-navigation';
+import { View,
+         Text,
+         Button,
+         NetInfo,
+         TextInput,
+         StyleSheet,
+         AppRegistry,
+         AsyncStorage } from 'react-native';
 
-export default class Geolocation extends Component {
+class ProfileScreen extends Component {
   constructor(props) {
     super(props);
+    this.state = { connectionState: 'offline', storedData : '' };
+    
+    this.getStoredData = this.getStoredData.bind(this);
+    this.changeConnectionStatus = this.changeConnectionStatus.bind(this);
+  }
+  static navigationOptions = {
+    title: 'Profile'
+  };
 
-    this.state = {
-      latitude : null,
-      longitude : null,
-      error : null
-    };
+  async getStoredData() {
+    try {
+      const storedCoords = await AsyncStorage.getItem('1');
+      if(storedCoords !== null) {
+        this.setState({ storedData: storedCoords });
+      }
+    }
+    catch(error) { this.setState({ storedData: 'error'}); }
   }
 
-  componentDidMount() {
-    this.watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        this.setState({
-          latitude : position.coords.latitude,
-          longitude : position.coords.longitude,
-          error : null
-        })
-      },
-      (error) => this.setState({error : error.message}),
-      {enableHighAccuracy : true, timeout : 20000, maximumAge : 1000, distanceFilter : 7}
-    );
+  changeConnectionStatus(connectionInfo) {
+    if(connectionInfo.type !== 'none') { this.getStoredData(); }
+
+    this.setState({ connectionState: connectionInfo.type });
   }
 
-  componentWillUnmount() { navigator.geolocation.clearWatch(this.watchId); }
+  componentWillMount() {
+    NetInfo.getConnectionInfo().then((connectionInfo) => {
+      this.setState({ connectionState: connectionInfo.type });
+    });
+    NetInfo.addEventListener('connectionChange', this.changeConnectionStatus);
+  }
+
+  componentWillUnmount() { NetInfo.removeEventListener('connectionChange', this.changeConnectionStatus); }
 
   render() {
     return (
-      <View style={{ flexgrow : 1, alignItems : 'center', justifyContent : 'center'}}>
-        <Text> Latitude : {this.state.latitude} </Text>
-        <Text> Longitude : {this.state.longitude} </Text>
-        {this.state.error ? <Text> Error : {this.state.error} </Text> : null}
+      <View style={styles.container}>
+        <Geolocation conn={ this.state.connectionState } />
+        <Text> StoredCoords: { (this.state.storedData === '') ? '' : this.state.storedData } </Text>
+        <Text> Connection Status: { this.state.connectionState } </Text>
       </View>
     );
   }
 }
 
+class LoginScreen extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { loginId : null};
+
+    this.storeLogin = this.storeLogin.bind(this);
+    this.retrieveLogin = this.retrieveLogin.bind(this);
+  }
+
+  async storeLogin() {
+    try { await AsyncStorage.setItem('1', this.state.loginId); }
+    catch(error) { /* error storing the loginId */ }
+  }
+
+  async retrieveLogin() {
+    try {
+      const loginId = await AsyncStorage.getItem('1');
+      if(loginId === null) return false;
+      else return true;
+    }
+    catch(error) { /* error retrieving loginId*/ }
+  }
+
+  componentWillMount() {
+    const { navigate } = this.props.navigation;
+    if(this.retrieveLogin) navigate('Profile');
+  }
+
+  render() {
+
+    const { navigate } = this.props.navigation;
+
+    return (
+      <View style={styles.container}>
+        <Text style={{color:'blue', fontSize: 30}}> Login </Text>
+        <TextInput style={{height: 40, width: 100}} onChangeText={(login) => this.state.loginId=login} />
+        <Button style={{height: 40, width: 30}} title="Submit" onPress={() => {
+          this.storeLogin();
+          navigate('Profile');
+        }} />
+      </View>
+    );
+  }
+}
+
+export default AppScreens = StackNavigator({
+  Login: { screen: LoginScreen },
+  Profile: { screen: ProfileScreen }
+});
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#F5FCFF',
   },
   welcome: {
@@ -69,4 +131,4 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('GPSProject', () => Geolocation);
+AppRegistry.registerComponent('GPSProject', () => AppScreens);
